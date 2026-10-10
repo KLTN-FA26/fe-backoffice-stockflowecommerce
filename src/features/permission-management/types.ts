@@ -1,4 +1,5 @@
 export type {
+  UpdateRolePermissions,
   RoleMatrix,
   RoleMatrixAction,
   RoleMatrixGroup,

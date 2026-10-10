@@ -1,20 +1,11 @@
-/**
- * Next.js proxy — route protection.
- *
- * Checks for JWT token in localStorage via cookie (or header).
- * Since proxy runs on the server, we can't access localStorage directly.
- * Instead we check for the auth cookie set by the client.
- *
- * Strategy:
- *  - `/admin/*` routes → require auth → redirect to /login if no token
- *  - `/login` → redirect to /admin if already authenticated
- *  - Everything else → pass through
- *
- * Note: This is a lightweight check. The real auth validation happens
- * server-side (Spring Boot) when the JWT is sent with API requests.
- */
+/** Cookie presence is a routing hint; the BFF/backend validate the session. */
 
 import { NextResponse } from "next/server";
+
+import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME } from "@/constants/auth";
+
+import { expireLegacyCookie } from "@/lib/auth/server/cookie";
+
 import type { NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
@@ -31,29 +22,32 @@ function isStaticAsset(pathname: string): boolean {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Clear the old readable cookie on page entry, including public pages.
+  const finalize = (response: NextResponse) =>
+    request.cookies.has(LEGACY_AUTH_COOKIE_NAME) ? expireLegacyCookie(response) : response;
 
   // Skip static assets
   if (isStaticAsset(pathname)) {
-    return NextResponse.next();
+    return finalize(NextResponse.next());
   }
 
-  // Read the auth token from cookie (set by client on login)
-  const authToken = request.cookies.get("stockflow-auth-token")?.value;
+  // Read the server-issued HttpOnly routing hint.
+  const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const isAuthenticated = !!authToken;
 
   // Protected routes: /admin/*
   if (pathname.startsWith("/admin") && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    return finalize(NextResponse.redirect(loginUrl));
   }
 
   // Already authenticated → redirect away from login
   if (isPublicPath(pathname) && isAuthenticated) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return finalize(NextResponse.redirect(new URL("/admin", request.url)));
   }
 
-  return NextResponse.next();
+  return finalize(NextResponse.next());
 }
 
 export const config = {

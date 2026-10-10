@@ -1,108 +1,88 @@
-/**
- * Auth store — zustand with persist.
- *
- * Stores JWT tokens received from Spring Boot backend.
- * Token is attached to every axios request via interceptor in client.ts.
- *
- * Flow:
- *   1. User submits credentials → POST /api/auth/login (Spring Boot)
- *   2. Spring Boot returns { accessToken, refreshToken, user }
- *   3. FE stores tokens here → axios interceptor attaches Authorization header
- *   4. On 401 → try refresh token → if fail → logout + redirect /login
- *   5. Next.js middleware checks token existence → redirect if missing
- */
-
+/** UI state only. Authentication is established by the server session endpoint. */
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+
+import { AUTH_STORAGE_KEY } from "@/constants/auth";
+
+import { publishAuthEvent } from "./auth-events";
+import { authUserSchema } from "./auth-schemas";
+import { ROLES } from "./roles";
+
+import type { AuthUser } from "./auth-schemas";
 import type { RoleName } from "./roles";
-import { setAuthCookie, removeAuthCookie } from "./auth-cookie";
 
-/* ── Types ───────────────────────────────────────────────────────────── */
-
-export interface AuthUser {
-  userId: string;
-  fullName: string;
-  email: string;
-  roles: RoleName[];
-  warehouseIds: string[];
+export type { AuthUser } from "./auth-schemas";
+export type AuthStatus = "unknown" | "authenticated" | "unauthenticated";
+/** Discard obsolete persistence on any browser entry point, never restore it. */
+export function discardLegacyAuthState() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch {
+    /* Storage may be disabled. */
+  }
 }
+discardLegacyAuthState();
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
+let revision = 0;
+export const getAuthRevision = () => revision;
 
 interface AuthState {
-  /* ── Data ────────────────────────────────────────────────────────── */
   user: AuthUser | null;
-  tokens: AuthTokens | null;
+  status: AuthStatus;
+  bootstrapError: string | null;
+  authorizationVersion: number;
   isAuthenticated: boolean;
-
-  /* ── Role impersonation (dev/demo only) ─────────────────────────── */
   impersonatedRole: RoleName | null;
-  setImpersonatedRole: (r: RoleName | null) => void;
-
-  /* ── Effective roles (respects impersonation) ───────────────────── */
+  setImpersonatedRole: (role: RoleName | null) => void;
   effectiveRoles: () => RoleName[];
-
-  /* ── Actions ────────────────────────────────────────────────────── */
-  login: (user: AuthUser, tokens: AuthTokens) => void;
-  updateTokens: (tokens: AuthTokens) => void;
-  logout: () => void;
+  login: (user: AuthUser, notify?: boolean) => void;
+  logout: (notify?: boolean) => void;
+  beginBootstrap: () => void;
+  failBootstrap: (message: string) => void;
 }
 
-/* ── Store ────────────────────────────────────────────────────────────── */
-
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      tokens: null,
-      isAuthenticated: false,
-
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  status: "unknown",
+  bootstrapError: null,
+  authorizationVersion: 0,
+  isAuthenticated: false,
+  impersonatedRole: null,
+  setImpersonatedRole: (role) => set({ impersonatedRole: role }),
+  effectiveRoles: () => {
+    const { user, impersonatedRole } = get();
+    if (!user) return [];
+    if (impersonatedRole) return [impersonatedRole];
+    return ROLES.filter((role) => user.roles.includes(role));
+  },
+  login: (user, notify = true) => {
+    discardLegacyAuthState();
+    const identity = authUserSchema.parse(user);
+    revision++;
+    set({
+      authorizationVersion: get().authorizationVersion + 1,
+      user: identity,
+      status: "authenticated",
+      isAuthenticated: true,
+      bootstrapError: null,
       impersonatedRole: null,
-      setImpersonatedRole: (r) => set({ impersonatedRole: r }),
-
-      effectiveRoles: () => {
-        const { user, impersonatedRole } = get();
-        if (!user) return [];
-        if (impersonatedRole) return [impersonatedRole];
-        return user.roles;
-      },
-
-      login: (user, tokens) => {
-        setAuthCookie(tokens.accessToken);
-        set({ user, tokens, isAuthenticated: true, impersonatedRole: null });
-      },
-
-      updateTokens: (tokens) => {
-        setAuthCookie(tokens.accessToken);
-        set({ tokens });
-      },
-
-      logout: () => {
-        removeAuthCookie();
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          impersonatedRole: null,
-        });
-      },
-    }),
-    {
-      name: "stockflow-auth",
-      storage: createJSONStorage(() =>
-        typeof window !== "undefined"
-          ? localStorage
-          : { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-      ),
-      partialize: (state) => ({
-        user: state.user,
-        tokens: state.tokens,
-        isAuthenticated: state.isAuthenticated,
-        // Don't persist impersonatedRole — reset on page refresh
-      }),
-    },
-  ),
-);
+    });
+    if (notify) publishAuthEvent("session-changed");
+  },
+  logout: (notify = true) => {
+    discardLegacyAuthState();
+    revision++;
+    set({
+      authorizationVersion: get().authorizationVersion + 1,
+      user: null,
+      status: "unauthenticated",
+      isAuthenticated: false,
+      bootstrapError: null,
+      impersonatedRole: null,
+    });
+    if (notify) publishAuthEvent("logout");
+  },
+  beginBootstrap: () =>
+    set({ user: null, status: "unknown", isAuthenticated: false, bootstrapError: null }),
+  failBootstrap: (message) => set({ bootstrapError: message }),
+}));

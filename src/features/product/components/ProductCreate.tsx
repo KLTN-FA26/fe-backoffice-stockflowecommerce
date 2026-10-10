@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-import { ADMIN_ROUTES, PRODUCT_STATUS } from "@/constants";
+import { ADMIN_ROUTES, PRODUCT_STATUS, PRODUCT_PERMISSIONS } from "@/constants";
 
 import { ApiError } from "@/lib/api";
 import { useCan } from "@/lib/auth/components/Can";
@@ -37,7 +37,7 @@ import type { Product, ProductDraftFormValues } from "@/features/product";
 export function ProductCreate({ productId }: { productId?: string }) {
   const isEditing = Boolean(productId);
   const router = useRouter();
-  const canSave = useCan(isEditing ? "product.edit" : "product.create");
+  const canSave = useCan(isEditing ? PRODUCT_PERMISSIONS.update : PRODUCT_PERMISSIONS.create);
   const productQuery = useProduct(productId);
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data?.items ?? [];

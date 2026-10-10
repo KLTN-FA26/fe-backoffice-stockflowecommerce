@@ -1,8 +1,8 @@
 /**
- * Role Registry — source of truth for role names.
+ * Demo display registry — labels only, never authorization.
  *
  * Re-exports the `RoleName` type from mock-data and provides the ROLES array
- * for use in permission checks, role switcher, and auth config.
+ * for display in the mock role switcher. Backend roles are identity/context only.
  *
  * Source: docs/00-system-overview §2 "Role Registry"
  */

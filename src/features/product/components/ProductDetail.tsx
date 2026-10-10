@@ -134,12 +134,9 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 
 export function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id: productId } = React.use(params);
-  const roles = useAuthStore((state) => state.effectiveRoles());
-  const currentUserId = useAuthStore((state) => state.user?.userId);
-  const currentRole = roles[0];
-  const canEditProduct = useCan("product.edit");
-
   const can = usePermissionChecker();
+  const currentUserId = useAuthStore((state) => state.user?.userId);
+  const canEditProduct = useCan(PRODUCT_PERMISSIONS.update);
 
   const productQuery = useProduct(productId);
   const variantsQuery = useVariants(productId);
@@ -173,8 +170,8 @@ export function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
     transitionMutation.isPending || publishMutation.isPending || unpublishMutation.isPending;
   const actions = useMemo(
     () =>
-      product && currentRole
-        ? allowedProductActions(product.status, currentRole).filter(
+      product
+        ? allowedProductActions(product.status, can).filter(
             (action) =>
               action.transition &&
               !(
@@ -183,7 +180,7 @@ export function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
               ),
           )
         : [],
-    [currentRole, currentUserId, product],
+    [can, currentUserId, product],
   );
 
   const handleStatusChange = useCallback(

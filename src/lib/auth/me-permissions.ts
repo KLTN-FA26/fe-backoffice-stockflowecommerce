@@ -12,6 +12,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { PERMISSION_QUERY } from "@/constants/permissions";
+
 import { api } from "@/lib/api/client";
 
 import { useAuthStore } from "./auth-store";
@@ -29,13 +31,16 @@ export const PERMISSION_ACTIONS = [
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 export type PermissionCode = `${string}:${PermissionAction}`;
 
-const MY_PERMISSIONS_PATH = "/identity/me/permissions";
-const MY_PERMISSIONS_STALE_MS = 5 * 60_000;
-
+// BE develop MyPermissionsResponse, PermissionCode, Action and DataScope.
+export const permissionCodeSchema = z.templateLiteral([
+  z.string().regex(/^[a-z0-9-]{2,64}$/),
+  ":",
+  z.enum(PERMISSION_ACTIONS),
+]);
 export const myPermissionsSchema = z.object({
   roles: z.array(z.string()),
-  permissions: z.array(z.string()),
-  dataScope: z.string().nullish(),
+  permissions: z.array(permissionCodeSchema),
+  dataScope: z.enum(["OWN", "TEAM", "WAREHOUSE", "ALL"]),
 });
 
 export type MyPermissions = z.infer<typeof myPermissionsSchema>;
@@ -43,15 +48,16 @@ export type MyPermissions = z.infer<typeof myPermissionsSchema>;
 export const meKeys = {
   all: ["identity", "me"] as const,
   permissions: () => [...meKeys.all, "permissions"] as const,
+  sessionPermissions: (userId: string | null, version: number) =>
+    [...meKeys.permissions(), userId, version] as const,
 };
 
 export function isPermissionCode(value: string): value is PermissionCode {
-  const action = value.split(":")[1];
-  return (PERMISSION_ACTIONS as readonly string[]).includes(action ?? "");
+  return permissionCodeSchema.safeParse(value).success;
 }
 
 export async function fetchMyPermissions(signal?: AbortSignal): Promise<MyPermissions> {
-  const { data } = await api.get<unknown>(MY_PERMISSIONS_PATH, { signal });
+  const { data } = await api.get<unknown>(PERMISSION_QUERY.path, { signal });
   return myPermissionsSchema.parse(data);
 }
 
@@ -61,17 +67,19 @@ export function hasPermission(perms: MyPermissions | undefined, code: Permission
 }
 
 export function useMyPermissions(enabled = true) {
-  const userId = useAuthStore((s) => s.user?.userId ?? null);
-  // Đổi vai trò giả lập (RoleSwitcher, chỉ demo) → key đổi → tải lại quyền
-  const impersonatedRole = useAuthStore((s) => s.impersonatedRole);
+  const userId = useAuthStore((state) => state.user?.userId ?? null);
+  const status = useAuthStore((state) => state.status);
+  const version = useAuthStore((state) => state.authorizationVersion);
   return useQuery({
-    queryKey: [...meKeys.permissions(), userId, impersonatedRole],
+    queryKey: meKeys.sessionPermissions(userId, version),
     queryFn: ({ signal }) => fetchMyPermissions(signal),
-    enabled: enabled && userId !== null,
-    staleTime: MY_PERMISSIONS_STALE_MS,
-    // Query lỗi (vd BE chưa có endpoint → 404) KHÔNG tự refetch khi có component mới mount.
-    // Nếu không: gate render màn lỗi → màn lỗi gọi useCan (observer mới) → refetch reset về
-    // pending → gate về skeleton → lỗi lại → vòng lặp hàng trăm request/giây.
+    enabled: enabled && status === "authenticated" && userId !== null,
+    staleTime: PERMISSION_QUERY.staleTime,
+    refetchOnWindowFocus: "always",
+    // No old session cache or placeholder grants can authorize a new session.
+    gcTime: 0,
+    placeholderData: undefined,
+    // Do not retry failed permission observers on each mount (error UI also uses Can).
     retryOnMount: false,
   });
 }

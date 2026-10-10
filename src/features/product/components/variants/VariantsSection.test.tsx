@@ -93,8 +93,17 @@ function Harness() {
 function renderSection() {
   // useMyPermissions chỉ gọi /identity/me/permissions khi đã đăng nhập.
   useAuthStore.setState({
-    user: { userId: "u-test", fullName: "Test", email: "t@t.vn", roles: [], warehouseIds: [] },
+    user: {
+      userId: "u-test",
+      fullName: "Test",
+      email: "t@t.vn",
+      roles: [],
+      username: "test",
+      status: "ACTIVE",
+      lastLoginAt: null,
+    },
     isAuthenticated: true,
+    status: "authenticated",
     impersonatedRole: null,
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

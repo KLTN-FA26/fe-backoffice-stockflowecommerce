@@ -4,12 +4,14 @@
  * Only visible when the app is running in mock mode (server-derived flag,
  * see `useIsMock` in `providers/app-providers.tsx`).
  * Renders a floating dropdown in the bottom-right corner.
- * Uses auth-store impersonatedRole to override effective roles.
+ * Changes display context only; it cannot grant any backend capability.
  */
 
 "use client";
 
 import React, { useState } from "react";
+import { PERMISSION_UI } from "@/constants/permissions";
+
 import { useIsMock } from "@/providers/app-providers";
 import { useAuthStore } from "../auth-store";
 import { ROLES, type RoleName } from "../roles";
@@ -64,6 +66,7 @@ export function RoleSwitcher() {
         <div className="border-border-default bg-bg-surface absolute right-0 bottom-full mb-2 w-64 rounded-lg border py-1 shadow-xl">
           <div className="border-border-default border-b px-3 py-2">
             <p className="text-text-primary text-xs font-semibold">Role Switcher</p>
+            <p className="text-text-muted text-xs">{PERMISSION_UI.demoContext}</p>
             <p className="text-text-muted text-[10px]">Đang đăng nhập: {user.fullName}</p>
             <p className="text-text-muted text-[10px]">Roles gốc: {user.roles.join(", ")}</p>
           </div>

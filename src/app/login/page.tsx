@@ -20,9 +20,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, useTransition } from "react";
 
 import { ADMIN_ROUTES, APP_ROUTES } from "@/constants";
+import { AUTH_UI } from "@/constants/auth";
 
 import { getMockLoginUsersApi, loginApi, mockLoginApi } from "@/lib/auth/auth-api";
-import { useAuthStore } from "@/lib/auth/auth-store";
+import { loginErrorMessage } from "@/lib/auth/login-error";
+import { useAuthLifecycle } from "@/lib/auth/use-auth-lifecycle";
 
 import { useIsMock } from "@/providers/app-providers";
 
@@ -68,15 +70,19 @@ function LoginForm() {
   const callbackUrl = requestedCallback?.startsWith(`${ADMIN_ROUTES.home}/`)
     ? requestedCallback
     : ADMIN_ROUTES.home;
-  const login = useAuthStore((state) => state.login);
   const isMock = useIsMock();
+  const { status, isAuthenticated, bootstrapError, retry } = useAuthLifecycle();
+
+  useEffect(() => {
+    if (isAuthenticated) router.replace(callbackUrl);
+  }, [callbackUrl, isAuthenticated, router]);
 
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [mockUsers, setMockUsers] = useState<MockLoginUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [isLoadingUsers, setIsLoadingUsers] = useState(isMock);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -107,11 +113,7 @@ function LoginForm() {
     };
   }, [isMock]);
 
-  function completeLogin(response: Awaited<ReturnType<typeof loginApi>>) {
-    login(response.user, {
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-    });
+  function completeLogin() {
     router.replace(callbackUrl);
     router.refresh();
   }
@@ -122,26 +124,39 @@ function LoginForm() {
 
     startTransition(async () => {
       try {
-        completeLogin(await mockLoginApi(selectedUserId));
+        await mockLoginApi(selectedUserId);
+        completeLogin();
       } catch (loginError: unknown) {
-        setError(loginError instanceof Error ? loginError.message : "Đăng nhập thất bại.");
+        setError(loginErrorMessage(loginError));
       }
     });
   }
 
   function handleRealLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!email || !password) return;
+    if (!username || !password) return;
     setError(null);
 
     startTransition(async () => {
       try {
-        completeLogin(await loginApi({ email, password }));
+        await loginApi({ username, password });
+        completeLogin();
       } catch (loginError: unknown) {
-        setError(loginError instanceof Error ? loginError.message : "Đăng nhập thất bại.");
+        setError(loginErrorMessage(loginError));
       }
     });
   }
+
+  if (status === "unknown" && bootstrapError)
+    return (
+      <main className="bg-bg-base flex min-h-screen items-center justify-center">
+        <div role="alert">
+          {bootstrapError}
+          <Button onClick={retry}>{AUTH_UI.retry}</Button>
+        </div>
+      </main>
+    );
+  if (status === "unknown" || isAuthenticated) return <LoginPageFallback />;
 
   const selectedUser = mockUsers.find((user) => user.userId === selectedUserId);
 
@@ -310,14 +325,14 @@ function LoginForm() {
           ) : (
             <form onSubmit={handleRealLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email công việc</Label>
+                <Label htmlFor="username">Tên đăng nhập</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="tenban@stockflow.vn"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
+                  id="username"
+                  type="text"
+                  placeholder="Tên đăng nhập"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  autoComplete="username"
                   className="h-11 rounded-[var(--r-sm)]"
                   required
                 />

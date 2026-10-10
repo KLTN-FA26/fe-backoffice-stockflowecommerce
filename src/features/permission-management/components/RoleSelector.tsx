@@ -10,19 +10,20 @@ import {
 import type { RoleResponse } from "../types";
 
 interface RoleSelectorProps {
+  disabled?: boolean;
   roles: readonly RoleResponse[];
   value: string;
   onChange: (roleCode: string) => void;
 }
 
-export function RoleSelector({ roles, value, onChange }: RoleSelectorProps) {
+export function RoleSelector({ roles, value, onChange, disabled }: RoleSelectorProps) {
   return (
     <div className="border-border-default bg-bg-surface rounded-[var(--r-sm)] border p-4">
       <Label htmlFor="permission-role" className="text-ink-primary text-sm font-semibold">
         Vai trò
       </Label>
       <p className="text-ink-secondary mt-1 text-xs">Chọn vai trò để xem ma trận quyền.</p>
-      <Select value={value} onValueChange={onChange}>
+      <Select disabled={disabled} value={value} onValueChange={onChange}>
         <SelectTrigger
           id="permission-role"
           aria-label="Chọn vai trò để xem ma trận quyền"

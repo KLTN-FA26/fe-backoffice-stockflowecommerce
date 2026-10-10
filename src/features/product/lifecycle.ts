@@ -4,11 +4,11 @@
  * Source: docs/warehouse/01-product-creation §5 + §6. Biến thể: `variant-lifecycle.ts` (BE PR #71).
  */
 
-import { can } from "@/lib/auth/permissions";
+import { PRODUCT_PERMISSIONS } from "@/constants/permissions";
+
 import { allowedTransitions, canTransition, isTerminal } from "@/lib/domain/lifecycle";
 
-import type { Permission } from "@/lib/auth/permissions";
-import type { RoleName } from "@/lib/auth/roles";
+import type { PermissionCode } from "@/lib/auth/me-permissions";
 import type { ProductStatus } from "./types";
 
 export { allowedTransitions, canTransition, isTerminal };
@@ -27,7 +27,7 @@ export const PRODUCT_TRANSITIONS: Record<BackendProductStatus, readonly BackendP
 export interface ProductAction {
   readonly code: string;
   readonly label: string;
-  readonly permission: Permission;
+  readonly permission: PermissionCode;
   readonly fromStatuses: readonly ProductStatus[];
   readonly targetStatus?: ProductStatus;
   readonly transition?: "submit" | "approve" | "reject" | "discontinue" | "publish" | "unpublish";
@@ -38,14 +38,14 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "edit",
     label: "Chỉnh sửa",
-    permission: "product.edit",
+    permission: PRODUCT_PERMISSIONS.update,
     fromStatuses: ["Draft"],
   },
   // docs §4.8: Submit for review → Pending Approval.
   {
     code: "submit",
     label: "Gửi duyệt",
-    permission: "product.edit",
+    permission: PRODUCT_PERMISSIONS.update,
     fromStatuses: ["Draft"],
     targetStatus: "Pending Approval",
     transition: "submit",
@@ -54,7 +54,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "approve",
     label: "Phê duyệt",
-    permission: "product.approve",
+    permission: PRODUCT_PERMISSIONS.approve,
     fromStatuses: ["Pending Approval"],
     targetStatus: "Approved",
     transition: "approve",
@@ -62,7 +62,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "reject",
     label: "Từ chối",
-    permission: "product.approve",
+    permission: PRODUCT_PERMISSIONS.approve,
     fromStatuses: ["Pending Approval"],
     targetStatus: "Draft",
     transition: "reject",
@@ -71,7 +71,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "publish",
     label: "Xuất bản",
-    permission: "product.approve",
+    permission: PRODUCT_PERMISSIONS.approve,
     fromStatuses: ["Approved"],
     targetStatus: "Published",
     transition: "publish",
@@ -79,7 +79,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "unpublish",
     label: "Gỡ xuất bản",
-    permission: "product.approve",
+    permission: PRODUCT_PERMISSIONS.approve,
     fromStatuses: ["Published"],
     targetStatus: "Approved",
     transition: "unpublish",
@@ -87,7 +87,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
   {
     code: "discontinue",
     label: "Ngừng kinh doanh",
-    permission: "product.approve",
+    permission: PRODUCT_PERMISSIONS.approve,
     fromStatuses: ["Approved", "Published"],
     targetStatus: "Discontinued",
     transition: "discontinue",
@@ -97,7 +97,7 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
 
 export function allowedProductActions(
   status: ProductStatus,
-  role: RoleName,
+  can: (permission: PermissionCode) => boolean,
 ): readonly ProductAction[] {
   return PRODUCT_ACTIONS.filter((action) => {
     if (!action.fromStatuses.includes(status)) return false;
@@ -109,7 +109,7 @@ export function allowedProductActions(
     ) {
       return false;
     }
-    return can(role, action.permission);
+    return can(action.permission);
   });
 }
 

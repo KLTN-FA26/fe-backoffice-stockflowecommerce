@@ -46,8 +46,17 @@ export function mockOrderApiGet(
 
 export function renderOrderScreen(ui: React.ReactElement, searchParams = "") {
   useAuthStore.setState({
-    user: { userId: "u-test", fullName: "Test", email: "t@t.vn", roles: [], warehouseIds: [] },
+    user: {
+      userId: "u-test",
+      fullName: "Test",
+      email: "t@t.vn",
+      roles: [],
+      username: "test",
+      status: "ACTIVE",
+      lastLoginAt: null,
+    },
     isAuthenticated: true,
+    status: "authenticated",
     impersonatedRole: null,
   });
   const client = new QueryClient({

@@ -1,4 +1,4 @@
-export { getRolePermissionMatrix, listRoles } from "./api";
+export { getRolePermissionMatrix, listRoles, updateRolePermissions } from "./api";
 export {
   permissionActionSchema,
   dataScopeSchema,
@@ -6,9 +6,11 @@ export {
   roleMatrixGroupSchema,
   roleMatrixResourceSchema,
   roleMatrixSchema,
+  updateRolePermissionsSchema,
   roleResponseSchema,
 } from "./schemas";
 export type {
+  UpdateRolePermissions,
   RoleMatrix,
   RoleMatrixAction,
   RoleMatrixGroup,
@@ -16,3 +18,5 @@ export type {
   RoleResponse,
 } from "./schemas";
 export { permissionManagementKeys, useRolePermissionMatrix, useRoles } from "./queries";
+
+export { useUpdateRolePermissions } from "./mutations";

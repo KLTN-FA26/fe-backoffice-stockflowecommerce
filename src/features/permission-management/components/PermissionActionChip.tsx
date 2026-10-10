@@ -1,10 +1,21 @@
 import { Check, LockKeyhole, Minus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import type { RoleMatrixAction } from "../types";
 
-export function PermissionActionChip({ action }: { action: RoleMatrixAction }) {
+export function PermissionActionChip({
+  action,
+  resourceLabel,
+  disabled = true,
+  onToggle,
+}: {
+  action: RoleMatrixAction;
+  resourceLabel: string;
+  disabled?: boolean;
+  onToggle?: () => void;
+}) {
   const stateLabel = action.granted ? "Được cấp" : "Chưa cấp";
 
   return (
@@ -17,6 +28,14 @@ export function PermissionActionChip({ action }: { action: RoleMatrixAction }) {
       }`}
     >
       <div className="flex min-w-0 items-center gap-2">
+        <Checkbox
+          checked={action.granted}
+          disabled={disabled}
+          onCheckedChange={() => {
+            if (!disabled) onToggle?.();
+          }}
+          aria-label={`${resourceLabel}: ${action.label} (${action.action})`}
+        />
         {action.granted ? (
           <Check className="text-positive size-4 shrink-0" aria-hidden="true" />
         ) : (

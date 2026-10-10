@@ -28,8 +28,18 @@ function mockPermissions(permissions: unknown) {
 
 beforeEach(() => {
   useAuthStore.setState({
-    user: { userId: "u1", fullName: "U", email: "u@u.vn", roles: [], warehouseIds: [] },
+    user: {
+      userId: "u1",
+      fullName: "U",
+      email: "u@u.vn",
+      roles: [],
+      username: "test",
+      status: "ACTIVE",
+      lastLoginAt: null,
+    },
     impersonatedRole: null,
+    status: "authenticated",
+    isAuthenticated: true,
   });
 });
 
@@ -67,7 +77,11 @@ describe("useCan với mã quyền thật", () => {
       wrapper: wrapperFor(client),
     });
     await waitFor(() =>
-      expect(client.getQueryState([...meKeys.permissions(), "u1", null])?.status).toBe("error"),
+      expect(
+        client.getQueryState(
+          meKeys.sessionPermissions("u1", useAuthStore.getState().authorizationVersion),
+        )?.status,
+      ).toBe("error"),
     );
     expect(result.current).toBe(false);
   });

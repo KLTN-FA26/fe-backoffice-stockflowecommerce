@@ -6,9 +6,16 @@ import { Badge } from "@/components/ui/badge";
 
 import { PermissionGroup } from "./PermissionGroup";
 
+import type { PermissionEditor } from "../use-permission-editor";
 import type { RoleMatrix } from "../types";
 
-export function PermissionMatrix({ matrix }: { matrix: RoleMatrix }) {
+export function PermissionMatrix({
+  matrix,
+  editor,
+}: {
+  matrix: RoleMatrix;
+  editor?: PermissionEditor;
+}) {
   return (
     <div className="space-y-5">
       <section className="border-border-default bg-bg-surface rounded-[var(--r-sm)] border p-4">
@@ -25,7 +32,7 @@ export function PermissionMatrix({ matrix }: { matrix: RoleMatrix }) {
           {matrix.systemRole && (
             <Badge variant="outline" className="border-brand/40 text-brand">
               <LockKeyhole aria-hidden="true" />
-              <span>System role · chỉ xem</span>
+              <span>System role</span>
             </Badge>
           )}
         </div>
@@ -38,7 +45,9 @@ export function PermissionMatrix({ matrix }: { matrix: RoleMatrix }) {
       </section>
 
       {matrix.groups.length > 0 ? (
-        matrix.groups.map((group, index) => <PermissionGroup key={index} group={group} />)
+        matrix.groups.map((group, index) => (
+          <PermissionGroup key={index} group={group} editor={editor} />
+        ))
       ) : (
         <EmptyState
           title="Chưa có nhóm quyền"

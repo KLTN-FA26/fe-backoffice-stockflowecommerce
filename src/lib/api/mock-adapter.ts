@@ -12,14 +12,14 @@
  * **Only this file may import mock-data.ts** — enforced by CI grep.
  */
 
-import {
-  AxiosError,
-  type AxiosRequestConfig,
-  type AxiosResponse,
-  type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError } from "axios";
+
+import { AUTH_API_BASE, AUTH_PATHS } from "@/constants/auth";
+import { PERMISSION_QUERY } from "@/constants/permissions";
+
 import { api } from "./client";
 
+import type { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import type { LegacyPaginatedResponse, PaginatedResponse } from "./query-factory";
 
 /* ── Types ───────────────────────────────────────────────────────────── */
@@ -156,8 +156,18 @@ export function resolveMockRoute(
  * registered yet and get a bogus 404.
  */
 let routesReady: Promise<void> | undefined;
+const networkAdapter = axios.getAdapter(api.defaults.adapter);
 
 async function mockAdapter(config: InternalAxiosRequestConfig): Promise<AxiosResponse> {
+  // Mock identity uses the same HttpOnly BFF boundary as production.
+  if (
+    (config.baseURL === AUTH_API_BASE &&
+      Object.values(AUTH_PATHS).some((path) => path === config.url)) ||
+    config.url === PERMISSION_QUERY.path ||
+    config.url === "/identity/roles" ||
+    config.url?.startsWith("/identity/roles/")
+  )
+    return networkAdapter(config);
   if (routesReady) await routesReady;
 
   const url = config.url ?? "/";
@@ -242,7 +252,6 @@ export function activateMockAdapter(): void {
   routesReady = Promise.all([
     import("./mock-routes"),
     import("./mock-routes-suppliers"),
-    import("./mock-routes-me"),
     import("./mock-routes-purchase-orders"),
     import("./mock-routes-orders"),
     import("./mock-routes-goods-receipts"),
@@ -251,7 +260,6 @@ export function activateMockAdapter(): void {
     ([
       { registerAllMockRoutes },
       { registerSupplierMockRoutes },
-      { registerMeMockRoutes },
       { registerPurchaseOrderMockRoutes },
       { registerOrderMockRoutes },
       { registerGoodsReceiptMockRoutes },
@@ -259,7 +267,6 @@ export function activateMockAdapter(): void {
     ]) => {
       registerAllMockRoutes();
       registerSupplierMockRoutes();
-      registerMeMockRoutes();
       registerPurchaseOrderMockRoutes();
       registerOrderMockRoutes();
       registerGoodsReceiptMockRoutes();
@@ -268,5 +275,11 @@ export function activateMockAdapter(): void {
   );
 
   api.defaults.adapter = mockAdapter;
-  console.info("[mock-adapter] Activated — all API calls will be served from mock-data.ts");
+  console.info("[mock-adapter] Activated — feature data is mocked; auth uses the BFF");
+}
+
+/** Auth mocks obtain staff data only through the adapter boundary. */
+export async function getMockStaffUsers() {
+  const { staffUsers } = await import("@/lib/mock-data");
+  return staffUsers;
 }

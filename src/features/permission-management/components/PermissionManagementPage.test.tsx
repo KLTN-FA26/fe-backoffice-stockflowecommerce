@@ -4,6 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { ApiError } from "@/lib/api/error";
 
+import { clearRbacEditor } from "../editor-store";
+
 import type { RoleMatrix, RoleResponse } from "../types";
 
 const { useRolesMock, useMatrixMock } = vi.hoisted(() => ({
@@ -14,6 +16,11 @@ const { useRolesMock, useMatrixMock } = vi.hoisted(() => ({
 vi.mock("../queries", () => ({
   useRoles: useRolesMock,
   useRolePermissionMatrix: useMatrixMock,
+}));
+
+vi.mock("@/lib/auth/components/Can", () => ({ useCan: () => false }));
+vi.mock("../mutations", () => ({
+  useUpdateRolePermissions: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
 
 import { PermissionManagementPage } from "./PermissionManagementPage";
@@ -57,6 +64,8 @@ const matrix = (roleCode: string, roleLabel = roleCode): RoleMatrix => ({
   roleCode,
   roleLabel,
   systemRole: true,
+  editable: false,
+  version: 7,
   dataScope: "ALL",
   grantedCount: 1,
   totalCount: 2,
@@ -108,6 +117,7 @@ function matrixQuery(value: RoleMatrix, overrides: Record<string, unknown> = {})
 
 describe("PermissionManagementPage", () => {
   beforeEach(() => {
+    clearRbacEditor();
     vi.clearAllMocks();
     useRolesMock.mockReturnValue(rolesQuery());
     useMatrixMock.mockImplementation((roleCode: string) => matrixQuery(matrix(roleCode)));
@@ -194,7 +204,7 @@ describe("PermissionManagementPage", () => {
     expect(screen.getByText("Được cấp")).toBeInTheDocument();
     expect(screen.getByText("Chưa cấp")).toBeInTheDocument();
     expect(screen.getByText("Nhạy cảm")).toBeInTheDocument();
-    expect(screen.getByText("System role · chỉ xem")).toBeInTheDocument();
+    expect(screen.getByText("System role")).toBeInTheDocument();
     expect(screen.getByText("Phạm vi dữ liệu: ALL")).toBeInTheDocument();
   });
 

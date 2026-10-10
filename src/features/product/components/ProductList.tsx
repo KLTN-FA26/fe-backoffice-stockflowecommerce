@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "cn";
 import { BarChart3, Eye, Package, XCircle, Plus } from "lucide-react";
-import { ADMIN_ROUTES, PAGE_SIZE, STORAGE_KEYS } from "@/constants";
+import { ADMIN_ROUTES, PAGE_SIZE, PRODUCT_PERMISSIONS, STORAGE_KEYS } from "@/constants";
+import { PERMISSION_UI } from "@/constants/permissions";
 import { usePageConfig } from "@/hooks/use-page-config";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { useCan } from "@/lib/auth/components/Can";
@@ -118,7 +119,7 @@ const PAGE_SUBTITLE = "Quản lý sản phẩm. Biến thể, logistics và ản
 
 export function ProductList() {
   const router = useRouter();
-  const canCreateProduct = useCan("product.create");
+  const canCreateProduct = useCan(PRODUCT_PERMISSIONS.create);
   const productFilters = useUrlFilters(PRODUCT_LIST_FILTER_STATUSES, {
     keys: { page: "productPage", q: "productQ", status: "productStatus" },
   });
@@ -437,9 +438,7 @@ export function ProductList() {
               size="sm"
               onClick={() => canCreateProduct && router.push(ADMIN_ROUTES.products.create)}
               disabled={!canCreateProduct}
-              title={
-                canCreateProduct ? "Tạo sản phẩm" : "Role hiện tại không có quyền product.create"
-              }
+              title={canCreateProduct ? "Tạo sản phẩm" : PERMISSION_UI.productCreateDenied}
               className="bg-brand !text-ink-inverse hover:bg-brand-hover hover:!text-ink-inverse rounded-[var(--r-sm)]"
             >
               <Plus className="size-3.5" />

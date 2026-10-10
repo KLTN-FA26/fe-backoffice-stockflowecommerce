@@ -4,9 +4,16 @@ import { EmptyState } from "@/components/shared/EmptyState";
 
 import { PermissionResourceCard } from "./PermissionResourceCard";
 
+import type { PermissionEditor } from "../use-permission-editor";
 import type { RoleMatrixGroup } from "../types";
 
-export function PermissionGroup({ group }: { group: RoleMatrixGroup }) {
+export function PermissionGroup({
+  group,
+  editor,
+}: {
+  group: RoleMatrixGroup;
+  editor?: PermissionEditor;
+}) {
   const headingId = useId();
 
   return (
@@ -22,7 +29,7 @@ export function PermissionGroup({ group }: { group: RoleMatrixGroup }) {
       {group.resources.length > 0 ? (
         <div className="grid gap-3 xl:grid-cols-2">
           {group.resources.map((resource) => (
-            <PermissionResourceCard key={resource.code} resource={resource} />
+            <PermissionResourceCard key={resource.code} resource={resource} editor={editor} />
           ))}
         </div>
       ) : (
